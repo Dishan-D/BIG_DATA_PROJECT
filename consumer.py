@@ -10,7 +10,8 @@ def create_consumer(group_id="image-workers"):
     consumer = Consumer({
         'bootstrap.servers': BROKER_IP,
         'group.id': group_id,
-        'auto.offset.reset': 'earliest'
+        'auto.offset.reset': 'earliest',
+        'allow.auto.create.topics': True  # Allow auto-creation of topics
     })
     consumer.subscribe([TASK_TOPIC])
     print(f"🟢 Worker subscribed to topic '{TASK_TOPIC}'")
@@ -26,20 +27,21 @@ def consume_tile(consumer):
         return None
 
     value = msg.value().decode('utf-8')
+    
+    # Try JSON format first (new format from master_api.py)
     try:
-        # Try JSON format first (new format)
+        data = json.loads(value)
+        return {
+            "job_id": data.get("job_id"),
+            "tile_idx": data.get("tile_idx"),
+            "x": int(data["x"]),
+            "y": int(data["y"]),
+            "b64_tile": data["b64_tile"],
+            "tile_id": msg.key().decode('utf-8') if msg.key() else str(data.get("tile_idx", 0))
+        }
+    except json.JSONDecodeError:
+        # Not JSON, try old CSV format: "x,y,base64_data"
         try:
-            data = json.loads(value)
-            return {
-                "job_id": data.get("job_id"),
-                "tile_idx": data.get("tile_idx"),
-                "x": int(data["x"]),
-                "y": int(data["y"]),
-                "b64_tile": data["b64_tile"],
-                "tile_id": msg.key().decode('utf-8')
-            }
-        except (json.JSONDecodeError, KeyError):
-            # Fallback to old CSV format
             x, y, b64_tile = value.split(",", 2)
             return {
                 "job_id": None,
@@ -47,8 +49,12 @@ def consume_tile(consumer):
                 "x": int(x),
                 "y": int(y),
                 "b64_tile": b64_tile,
-                "tile_id": msg.key().decode('utf-8')
+                "tile_id": msg.key().decode('utf-8') if msg.key() else "unknown"
             }
-    except Exception as e:
-        print("⚠️ Error decoding message:", e)
+        except Exception as e:
+            print(f"⚠️ Error decoding CSV format: {e}")
+            return None
+    except (KeyError, ValueError, TypeError) as e:
+        print(f"⚠️ Error parsing message data: {e}")
+        print(f"   Message value (first 200 chars): {value[:200]}")
         return None
