@@ -43,9 +43,10 @@ def get_result_consumer():
                 'group.id': 'master-results-group',
                 'auto.offset.reset': 'latest',
                 'enable.auto.commit': True,
-                'session.timeout.ms': 60000,  # 60 seconds before considering consumer dead
-                'heartbeat.interval.ms': 3000,  # Send heartbeat every 3 seconds
-                'max.poll.interval.ms': 300000  # 5 minutes max time between polls
+                'session.timeout.ms': 120000,  # 2 minutes - very generous timeout
+                'heartbeat.interval.ms': 3000,  # 3 seconds
+                'max.poll.interval.ms': 600000,  # 10 minutes for long processing
+                'fetch.max.wait.ms': 500  # Don't wait too long for data
             })
             _result_consumer.subscribe([RESULT_TOPIC])
             print(f"🟢 Result consumer initialized")
@@ -118,6 +119,7 @@ def decode_tile(b64_tile):
 def send_tiles(producer, job_id, tiles):
     """Send all tiles to Kafka tasks topic with proper partitioning for load balancing."""
     partition_counts = {}  # Track which partitions get messages
+    num_partitions = 2  # Assuming 2 partitions for load balancing
     
     for idx, ((x, y), tile) in enumerate(tiles):
         try:
@@ -133,9 +135,9 @@ def send_tiles(producer, job_id, tiles):
                 "b64_tile": b64_tile
             }
             
-            # Send as JSON - use tile index as key for round-robin partitioning
-            # This ensures tiles are distributed across partitions (and thus workers)
-            key = str(idx).encode('utf-8')
+            # Explicitly assign partition in round-robin fashion
+            # Tile 0 -> partition 0, tile 1 -> partition 1, tile 2 -> partition 0, etc.
+            target_partition = idx % num_partitions
             
             def delivery_callback(err, msg):
                 if err:
@@ -146,9 +148,9 @@ def send_tiles(producer, job_id, tiles):
             
             producer.produce(
                 TASK_TOPIC,
-                key=key,
+                key=str(idx).encode('utf-8'),
                 value=json.dumps(task_data).encode('utf-8'),
-                partition=-1,  # Let Kafka decide partition based on key hash
+                partition=target_partition,  # Explicitly set partition for even distribution
                 callback=delivery_callback
             )
             
