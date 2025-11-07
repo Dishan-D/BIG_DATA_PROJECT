@@ -42,7 +42,10 @@ def get_result_consumer():
                 'bootstrap.servers': BROKER_IP,
                 'group.id': 'master-results-group',
                 'auto.offset.reset': 'latest',
-                'enable.auto.commit': True
+                'enable.auto.commit': True,
+                'session.timeout.ms': 60000,  # 60 seconds before considering consumer dead
+                'heartbeat.interval.ms': 3000,  # Send heartbeat every 3 seconds
+                'max.poll.interval.ms': 300000  # 5 minutes max time between polls
             })
             _result_consumer.subscribe([RESULT_TOPIC])
             print(f"🟢 Result consumer initialized")
@@ -59,8 +62,9 @@ def get_heartbeat_consumer():
                 'group.id': 'master-heartbeat-group',
                 'auto.offset.reset': 'earliest',  # Changed from 'latest' to catch all heartbeats
                 'enable.auto.commit': True,
-                'session.timeout.ms': 6000,
-                'heartbeat.interval.ms': 2000
+                'session.timeout.ms': 60000,  # 60 seconds
+                'heartbeat.interval.ms': 3000,  # 3 seconds
+                'max.poll.interval.ms': 300000  # 5 minutes
             })
             _heartbeat_consumer.subscribe([HEARTBEAT_TOPIC])
             print(f"🟢 Heartbeat consumer initialized")
