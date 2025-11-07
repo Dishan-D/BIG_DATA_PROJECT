@@ -6,15 +6,19 @@ BROKER_IP = "172.24.52.130:9092"
 TASK_TOPIC = "tasks"
 
 def create_consumer(group_id="image-workers"):
-    """Create and configure Kafka consumer."""
+    """Create and configure Kafka consumer with proper load balancing settings."""
     consumer = Consumer({
         'bootstrap.servers': BROKER_IP,
         'group.id': group_id,
         'auto.offset.reset': 'earliest',
-        'allow.auto.create.topics': True  # Allow auto-creation of topics
+        'enable.auto.commit': True,
+        'partition.assignment.strategy': 'roundrobin',  # Ensure round-robin assignment
+        'session.timeout.ms': 45000,
+        'heartbeat.interval.ms': 3000,
+        'max.poll.interval.ms': 300000
     })
     consumer.subscribe([TASK_TOPIC])
-    print(f"🟢 Worker subscribed to topic '{TASK_TOPIC}'")
+    print(f"🟢 Worker subscribed to topic '{TASK_TOPIC}' with round-robin strategy")
     return consumer
 
 def consume_tile(consumer):

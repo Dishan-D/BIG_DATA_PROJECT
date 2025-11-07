@@ -57,8 +57,10 @@ def get_heartbeat_consumer():
             _heartbeat_consumer = Consumer({
                 'bootstrap.servers': BROKER_IP,
                 'group.id': 'master-heartbeat-group',
-                'auto.offset.reset': 'latest',
-                'enable.auto.commit': True
+                'auto.offset.reset': 'earliest',  # Changed from 'latest' to catch all heartbeats
+                'enable.auto.commit': True,
+                'session.timeout.ms': 6000,
+                'heartbeat.interval.ms': 2000
             })
             _heartbeat_consumer.subscribe([HEARTBEAT_TOPIC])
             print(f"🟢 Heartbeat consumer initialized")
@@ -110,7 +112,7 @@ def decode_tile(b64_tile):
 # ------------ Task Distribution ------------
 
 def send_tiles(producer, job_id, tiles):
-    """Send all tiles to Kafka tasks topic."""
+    """Send all tiles to Kafka tasks topic with proper partitioning for load balancing."""
     for idx, ((x, y), tile) in enumerate(tiles):
         try:
             _, buf = cv2.imencode(".jpg", tile)
@@ -125,11 +127,13 @@ def send_tiles(producer, job_id, tiles):
                 "b64_tile": b64_tile
             }
             
-            # Send as JSON for better structure
+            # Send as JSON - use tile index as key for round-robin partitioning
+            # This ensures tiles are distributed across partitions (and thus workers)
             producer.produce(
-                TASK_TOPIC, 
-                key=f"{job_id}_tile_{idx}",
-                value=json.dumps(task_data).encode('utf-8')
+                TASK_TOPIC,
+                key=str(idx).encode('utf-8'),  # Use simple integer key for better distribution
+                value=json.dumps(task_data).encode('utf-8'),
+                partition=-1  # Let Kafka decide partition based on key hash
             )
             
             if idx % 5 == 0:
@@ -205,15 +209,25 @@ def monitor_heartbeats():
     
     while True:
         try:
-            msg = consumer.poll(timeout=1.0)
-            if not msg or msg.error():
+            msg = consumer.poll(timeout=0.5)
+            if not msg:
                 continue
             
-            data = json.loads(msg.value().decode('utf-8'))
-            worker_id = data.get("worker_id")
+            if msg.error():
+                print(f"⚠️ Heartbeat consumer error: {msg.error()}")
+                continue
             
-            if worker_id:
-                update_worker_heartbeat(worker_id)
+            try:
+                data = json.loads(msg.value().decode('utf-8'))
+                worker_id = data.get("worker_id")
+                
+                if worker_id:
+                    update_worker_heartbeat(worker_id)
+                    print(f"💓 Heartbeat received from {worker_id}")
+            except json.JSONDecodeError as e:
+                print(f"⚠️ Failed to parse heartbeat message: {e}")
+            except Exception as e:
+                print(f"⚠️ Error processing heartbeat: {e}")
                 
         except Exception as e:
             print(f"⚠️ Heartbeat monitoring error: {e}")
