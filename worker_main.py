@@ -73,6 +73,16 @@ def main():
         logging.info("📥 Creating Kafka consumer...")
         consumer = create_consumer(group_id="image-workers")
         
+        # Wait for partition assignment and log it
+        logging.info("⏳ Waiting for partition assignment...")
+        time.sleep(3)  # Give Kafka time to assign partitions
+        assignment = consumer.assignment()
+        if assignment:
+            partition_list = [f"partition {tp.partition}" for tp in assignment]
+            logging.info(f"✅ Assigned to: {', '.join(partition_list)}")
+        else:
+            logging.warning("⚠️ No partitions assigned yet (will be assigned on first poll)")
+        
         # Initialize producer
         logging.info("📤 Creating Kafka producer...")
         producer = create_producer()

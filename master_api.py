@@ -117,6 +117,8 @@ def decode_tile(b64_tile):
 
 def send_tiles(producer, job_id, tiles):
     """Send all tiles to Kafka tasks topic with proper partitioning for load balancing."""
+    partition_counts = {}  # Track which partitions get messages
+    
     for idx, ((x, y), tile) in enumerate(tiles):
         try:
             _, buf = cv2.imencode(".jpg", tile)
@@ -133,11 +135,21 @@ def send_tiles(producer, job_id, tiles):
             
             # Send as JSON - use tile index as key for round-robin partitioning
             # This ensures tiles are distributed across partitions (and thus workers)
+            key = str(idx).encode('utf-8')
+            
+            def delivery_callback(err, msg):
+                if err:
+                    print(f"⚠️ Delivery failed for tile {idx}: {err}")
+                else:
+                    partition = msg.partition()
+                    partition_counts[partition] = partition_counts.get(partition, 0) + 1
+            
             producer.produce(
                 TASK_TOPIC,
-                key=str(idx).encode('utf-8'),  # Use simple integer key for better distribution
+                key=key,
                 value=json.dumps(task_data).encode('utf-8'),
-                partition=-1  # Let Kafka decide partition based on key hash
+                partition=-1,  # Let Kafka decide partition based on key hash
+                callback=delivery_callback
             )
             
             if idx % 5 == 0:
@@ -148,6 +160,7 @@ def send_tiles(producer, job_id, tiles):
     
     producer.flush()
     print(f"✅ All {len(tiles)} tiles sent for job {job_id}")
+    print(f"📊 Distribution across partitions: {partition_counts}")
 
 
 # ------------ Result Collection ------------

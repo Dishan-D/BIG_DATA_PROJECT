@@ -12,13 +12,14 @@ def create_consumer(group_id="image-workers"):
         'group.id': group_id,
         'auto.offset.reset': 'earliest',
         'enable.auto.commit': True,
-        'partition.assignment.strategy': 'roundrobin',  # Ensure round-robin assignment
+        'partition.assignment.strategy': 'range',  # Changed to 'range' for more deterministic assignment
         'session.timeout.ms': 45000,
         'heartbeat.interval.ms': 3000,
-        'max.poll.interval.ms': 300000
+        'max.poll.interval.ms': 300000,
+        'client.id': None  # Let Kafka auto-generate unique client IDs
     })
     consumer.subscribe([TASK_TOPIC])
-    print(f"🟢 Worker subscribed to topic '{TASK_TOPIC}' with round-robin strategy")
+    print(f"🟢 Worker subscribed to topic '{TASK_TOPIC}' with range strategy")
     return consumer
 
 def consume_tile(consumer):
