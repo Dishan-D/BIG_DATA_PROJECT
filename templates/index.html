@@ -176,6 +176,11 @@
             font-weight: bold;
         }
 
+        .transform-option:has(input:checked) {
+            background: #f0f2ff;
+            border-color: #667eea;
+        }
+
         .transform-option span {
             font-size: 0.95em;
             color: #333;
@@ -342,10 +347,10 @@
                         </label>
                         <label class="transform-option">
                             <input type="checkbox" name="transform" value="invert">
-                            <span>� Color Invert</span>
+                            <span>🔄 Color Invert</span>
                         </label>
                         <label class="transform-option">
-                            <input type="checkbox" name="transform" value="blur">
+                            <input type="checkbox" name="transform" value="blur" checked>
                             <span>🌫️ Blur</span>
                         </label>
                     </div>
@@ -449,10 +454,11 @@
             const transformations = Array.from(checkboxes).map(cb => cb.value);
             
             if (transformations.length === 0) {
-                showAlert('Please select at least one transformation', 'error');
+                showAlert('⚠️ Please select at least one transformation effect', 'error');
                 return;
             }
 
+            console.log('Selected transformations:', transformations);
             document.getElementById('loading').style.display = 'block';
 
             const formData = new FormData();

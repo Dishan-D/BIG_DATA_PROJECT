@@ -73,24 +73,33 @@ def process_image(b64_tile, transformations):
             raise ValueError("Decoded image has zero size")
         
         logger.debug(f"Processing image tile: shape={img.shape}, dtype={img.dtype}")
+        logger.info(f"🎨 Applying transformations: {transformations}")
         
         # Apply transformations in sequence
         processed = img.copy()
         
-        for transform in transformations:
-            try:
-                if transform == 'blur':
-                    processed = apply_gaussian_blur(processed)
-                elif transform == 'grayscale':
-                    processed = apply_grayscale(processed)
-                elif transform == 'invert':
-                    processed = apply_invert(processed)
-                else:
-                    logger.warning(f"Unknown transformation: {transform}")
-                    
-            except Exception as e:
-                logger.error(f"Failed to apply {transform}: {e}")
-                # Continue with other transformations
+        if not transformations or len(transformations) == 0:
+            logger.warning(f"⚠️ No transformations specified! Returning original image.")
+            # Return original image if no transformations
+        else:
+            for transform in transformations:
+                try:
+                    logger.info(f"  → Applying: {transform}")
+                    if transform == 'blur':
+                        processed = apply_gaussian_blur(processed)
+                        logger.info(f"  ✓ Blur applied")
+                    elif transform == 'grayscale':
+                        processed = apply_grayscale(processed)
+                        logger.info(f"  ✓ Grayscale applied")
+                    elif transform == 'invert':
+                        processed = apply_invert(processed)
+                        logger.info(f"  ✓ Invert applied")
+                    else:
+                        logger.warning(f"Unknown transformation: {transform}")
+                        
+                except Exception as e:
+                    logger.error(f"Failed to apply {transform}: {e}")
+                    # Continue with other transformations
         
         # Encode back to JPEG
         try:

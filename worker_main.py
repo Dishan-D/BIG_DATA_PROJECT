@@ -124,7 +124,8 @@ def main():
                     errors_encountered += 1
                     continue
                 
-                logging.info(f"🧩 Processing tile {tile_id} from job {job_id} with {transformations}")
+                logging.info(f"🧩 Processing tile {tile_id} from job {job_id}")
+                logging.info(f"🎨 Transformations to apply: {transformations}")
                 
                 # Process the tile with specified transformations
                 try:
