@@ -42,6 +42,7 @@ def consume_tile(consumer):
             "x": int(data["x"]),
             "y": int(data["y"]),
             "b64_tile": data["b64_tile"],
+            "transformations": data.get("transformations", ["blur"]),  # Include transformations!
             "tile_id": msg.key().decode('utf-8') if msg.key() else str(data.get("tile_idx", 0))
         }
     except json.JSONDecodeError:
