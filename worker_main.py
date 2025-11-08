@@ -7,7 +7,7 @@ import sys
 import traceback
 from consumer import create_consumer, consume_tile
 from producer import create_producer, send_result
-from processor import process_blur
+from processor import process_image  # Updated to use new function
 
 # ================= CONFIG =================
 WORKER_ID = "worker-2"                # Change for each worker
@@ -116,6 +116,7 @@ def main():
                 y = msg.get("y", 0)
                 b64_tile = msg.get("b64_tile")
                 job_id = msg.get("job_id", "unknown")
+                transformations = msg.get("transformations", ["blur"])  # Get transformations list
                 
                 # Validate message data
                 if not b64_tile:
@@ -123,11 +124,11 @@ def main():
                     errors_encountered += 1
                     continue
                 
-                logging.info(f"🧩 Processing tile {tile_id} from job {job_id} at ({x},{y})")
+                logging.info(f"🧩 Processing tile {tile_id} from job {job_id} with {transformations}")
                 
-                # Process the tile
+                # Process the tile with specified transformations
                 try:
-                    processed_tile = process_blur(b64_tile)
+                    processed_tile = process_image(b64_tile, transformations)
                     logging.debug(f"✓ Tile {tile_id} processed successfully")
                 except Exception as proc_error:
                     logging.error(f"❌ Processing error for tile {tile_id}: {proc_error}")

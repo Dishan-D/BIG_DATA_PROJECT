@@ -63,6 +63,16 @@ def upload_image():
     if not allowed_file(file.filename):
         return jsonify({"error": "Invalid file type. Allowed: png, jpg, jpeg, bmp"}), 400
     
+    # Get transformations from form data (JSON array)
+    transformations = request.form.get('transformations', '["blur"]')
+    try:
+        import json
+        transformations = json.loads(transformations)
+        if not isinstance(transformations, list):
+            transformations = ["blur"]
+    except:
+        transformations = ["blur"]
+    
     # Save uploaded file
     filename = secure_filename(file.filename)
     job_id = str(uuid.uuid4())
@@ -74,7 +84,7 @@ def upload_image():
     # Start processing in background thread
     thread = threading.Thread(
         target=process_image_async,
-        args=(job_id, input_path, output_path, filename)
+        args=(job_id, input_path, output_path, filename, transformations)
     )
     thread.daemon = True
     thread.start()
@@ -83,6 +93,7 @@ def upload_image():
         "success": True,
         "job_id": job_id,
         "filename": filename,
+        "transformations": transformations,
         "message": "Image uploaded successfully. Processing started."
     }), 200
 

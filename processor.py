@@ -9,12 +9,33 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def process_blur(b64_tile):
+# ==================== INDIVIDUAL TRANSFORMATIONS ====================
+
+def apply_gaussian_blur(img):
+    """Apply Gaussian blur."""
+    return cv2.GaussianBlur(img, (31, 31), 0)
+
+
+def apply_grayscale(img):
+    """Convert to grayscale."""
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+
+
+def apply_invert(img):
+    """Invert colors (negative)."""
+    return cv2.bitwise_not(img)
+
+
+# ==================== MAIN PROCESSING FUNCTION ====================
+
+def process_image(b64_tile, transformations):
     """
-    Apply a very strong Gaussian blur to the received image tile.
+    Apply multiple transformations to an image tile.
     
     Args:
         b64_tile: Base64 encoded image data
+        transformations: List of transformation names to apply
         
     Returns:
         Base64 encoded processed image
@@ -53,15 +74,27 @@ def process_blur(b64_tile):
         
         logger.debug(f"Processing image tile: shape={img.shape}, dtype={img.dtype}")
         
-        # 🔥 Apply a stronger Gaussian blur (51x51 kernel)
-        try:
-            blurred = cv2.GaussianBlur(img, (51, 51), 0)
-        except Exception as e:
-            raise Exception(f"Gaussian blur failed: {e}")
+        # Apply transformations in sequence
+        processed = img.copy()
+        
+        for transform in transformations:
+            try:
+                if transform == 'blur':
+                    processed = apply_gaussian_blur(processed)
+                elif transform == 'grayscale':
+                    processed = apply_grayscale(processed)
+                elif transform == 'invert':
+                    processed = apply_invert(processed)
+                else:
+                    logger.warning(f"Unknown transformation: {transform}")
+                    
+            except Exception as e:
+                logger.error(f"Failed to apply {transform}: {e}")
+                # Continue with other transformations
         
         # Encode back to JPEG
         try:
-            success, buf = cv2.imencode('.jpg', blurred)
+            success, buf = cv2.imencode('.jpg', processed)
             if not success:
                 raise Exception("cv2.imencode failed to encode image")
         except Exception as e:
@@ -69,20 +102,27 @@ def process_blur(b64_tile):
         
         # Convert to base64
         try:
-            b64_blurred = base64.b64encode(buf).decode('utf-8')
+            b64_processed = base64.b64encode(buf).decode('utf-8')
         except Exception as e:
             raise Exception(f"Base64 encoding failed: {e}")
         
-        if not b64_blurred:
+        if not b64_processed:
             raise ValueError("Result is empty after encoding")
         
-        logger.debug(f"✓ Successfully processed tile (output size: {len(b64_blurred)} chars)")
-        return b64_blurred
+        logger.debug(f"✓ Successfully processed tile with {len(transformations)} transformations")
+        return b64_processed
         
     except ValueError as ve:
-        logger.error(f"❌ Validation error in process_blur: {ve}")
+        logger.error(f"❌ Validation error in process_image: {ve}")
         raise
     except Exception as e:
-        logger.error(f"❌ Unexpected error in process_blur: {e}")
+        logger.error(f"❌ Unexpected error in process_image: {e}")
         logger.debug(f"Input data length: {len(b64_tile) if b64_tile else 0}")
         raise
+
+
+# ==================== BACKWARD COMPATIBILITY ====================
+
+def process_blur(b64_tile):
+    """Legacy function for backward compatibility."""
+    return process_image(b64_tile, ['blur'])

@@ -148,6 +148,39 @@
             background: #e0e0e0;
         }
 
+        .transform-option {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .transform-option:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .transform-option input[type="checkbox"] {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .transform-option input[type="checkbox"]:checked + span {
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .transform-option span {
+            font-size: 0.95em;
+            color: #333;
+        }
+
         .jobs-section {
             background: white;
             border-radius: 15px;
@@ -297,6 +330,37 @@
             <div class="preview-container" id="previewContainer">
                 <h3>Preview</h3>
                 <img id="previewImage" class="preview-image" alt="Preview">
+                
+                <div style="margin-top: 30px;">
+                    <h3 style="margin-bottom: 15px;">🎨 Select Transformations</h3>
+                    <p style="font-size: 0.9em; color: #666; margin-bottom: 15px;">Choose one or more effects to apply. They will be applied in the order selected.</p>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-bottom: 20px;">
+                        <label class="transform-option">
+                            <input type="checkbox" name="transform" value="grayscale">
+                            <span>⚫ Grayscale</span>
+                        </label>
+                        <label class="transform-option">
+                            <input type="checkbox" name="transform" value="invert">
+                            <span>� Color Invert</span>
+                        </label>
+                        <label class="transform-option">
+                            <input type="checkbox" name="transform" value="blur">
+                            <span>🌫️ Blur</span>
+                        </label>
+                    </div>
+                    
+                    <div style="background: #f0f2ff; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <strong>💡 Pro Tips:</strong>
+                        <ul style="margin: 10px 0 0 20px; font-size: 0.9em; color: #666;">
+                            <li><strong>Grayscale:</strong> Convert to black and white</li>
+                            <li><strong>Color Invert:</strong> Create a negative effect</li>
+                            <li><strong>Blur:</strong> Smooth and soften the image</li>
+                            <li>Try: Grayscale → Invert for a classic negative photo</li>
+                        </ul>
+                    </div>
+                </div>
+                
                 <div style="margin-top: 20px; text-align: center;">
                     <button class="btn btn-primary" onclick="uploadImage()">🚀 Process Image</button>
                     <button class="btn btn-secondary" onclick="clearPreview()">❌ Clear</button>
@@ -380,10 +444,20 @@
                 return;
             }
 
+            // Get selected transformations
+            const checkboxes = document.querySelectorAll('input[name="transform"]:checked');
+            const transformations = Array.from(checkboxes).map(cb => cb.value);
+            
+            if (transformations.length === 0) {
+                showAlert('Please select at least one transformation', 'error');
+                return;
+            }
+
             document.getElementById('loading').style.display = 'block';
 
             const formData = new FormData();
             formData.append('image', selectedFile);
+            formData.append('transformations', JSON.stringify(transformations));
 
             try {
                 const response = await fetch('/api/upload', {

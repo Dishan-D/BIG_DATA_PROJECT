@@ -115,8 +115,11 @@ def decode_tile(b64_tile):
 
 # ------------ Task Distribution ------------
 
-def send_tiles(producer, job_id, tiles):
+def send_tiles(producer, job_id, tiles, transformations=None):
     """Send all tiles to Kafka tasks topic with automatic partitioning for load balancing."""
+    if transformations is None:
+        transformations = ["blur"]  # Default transformation
+        
     partition_counts = {}  # Track which partitions get messages
     
     for idx, ((x, y), tile) in enumerate(tiles):
@@ -124,13 +127,14 @@ def send_tiles(producer, job_id, tiles):
             _, buf = cv2.imencode(".jpg", tile)
             b64_tile = base64.b64encode(buf).decode('utf-8')
             
-            # Create task message with job_id
+            # Create task message with job_id and transformations
             task_data = {
                 "job_id": job_id,
                 "tile_idx": idx,
                 "x": x,
                 "y": y,
-                "b64_tile": b64_tile
+                "b64_tile": b64_tile,
+                "transformations": transformations  # Include transformation list
             }
             
             def delivery_callback(err, msg):
@@ -155,7 +159,7 @@ def send_tiles(producer, job_id, tiles):
             print(f"⚠️ Error sending tile {idx}: {e}")
     
     producer.flush()
-    print(f"✅ All {len(tiles)} tiles sent for job {job_id}")
+    print(f"✅ All {len(tiles)} tiles sent for job {job_id} with transformations: {transformations}")
     if partition_counts:
         print(f"📊 Distribution across partitions: {partition_counts}")
 
@@ -267,10 +271,20 @@ def monitor_heartbeats():
 
 # ------------ Main Processing Function ------------
 
-def process_image_async(job_id, input_path, output_path, filename):
+def process_image_async(job_id, input_path, output_path, filename, transformations=None):
     """
     Process image asynchronously - called from Flask in background thread.
+    
+    Args:
+        job_id: Unique job identifier
+        input_path: Path to input image
+        output_path: Path to save output image
+        filename: Original filename
+        transformations: List of transformation names to apply (default: ['blur'])
     """
+    if transformations is None:
+        transformations = ["blur"]
+        
     try:
         start_time = time.time()
         
@@ -292,6 +306,7 @@ def process_image_async(job_id, input_path, output_path, filename):
         # Split into tiles
         tiles, img_size, positions = split_image(img, TILE_SIZE)
         print(f"🖼️ Job {job_id}: Image size={img.shape}, tiles={len(tiles)}")
+        print(f"🎨 Transformations: {', '.join(transformations)}")
         
         # Create job in database
         create_job(job_id, filename, len(tiles), w, h)
@@ -303,7 +318,7 @@ def process_image_async(job_id, input_path, output_path, filename):
             update_job_status(job_id, 'failed')
             return
         
-        send_tiles(producer, job_id, tiles)
+        send_tiles(producer, job_id, tiles, transformations)
         
         # Collect results
         final_img, complete = collect_results(job_id, len(tiles), img_size)
