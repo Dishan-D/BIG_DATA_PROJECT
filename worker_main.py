@@ -116,7 +116,16 @@ def main():
                 y = msg.get("y", 0)
                 b64_tile = msg.get("b64_tile")
                 job_id = msg.get("job_id", "unknown")
-                transformations = msg.get("transformations", ["blur"])  # Get transformations list
+                
+                # Debug: Show full message keys
+                logging.debug(f"Message keys received: {list(msg.keys())}")
+                
+                transformations = msg.get("transformations", None)
+                if transformations is None:
+                    logging.warning(f"⚠️ No 'transformations' key in message! Using default ['blur']")
+                    transformations = ["blur"]
+                else:
+                    logging.info(f"✓ Transformations found in message: {transformations}")
                 
                 # Validate message data
                 if not b64_tile:

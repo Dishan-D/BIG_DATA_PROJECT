@@ -119,6 +119,8 @@ def send_tiles(producer, job_id, tiles, transformations=None):
     """Send all tiles to Kafka tasks topic with automatic partitioning for load balancing."""
     if transformations is None:
         transformations = ["blur"]  # Default transformation
+    
+    print(f"🔍 DEBUG: send_tiles called with transformations: {transformations}")
         
     partition_counts = {}  # Track which partitions get messages
     
@@ -136,6 +138,11 @@ def send_tiles(producer, job_id, tiles, transformations=None):
                 "b64_tile": b64_tile,
                 "transformations": transformations  # Include transformation list
             }
+            
+            # Debug: Log task data keys for first tile
+            if idx == 0:
+                print(f"🔍 DEBUG: First tile task_data keys: {list(task_data.keys())}")
+                print(f"🔍 DEBUG: First tile transformations value: {task_data['transformations']}")
             
             def delivery_callback(err, msg):
                 if err:
