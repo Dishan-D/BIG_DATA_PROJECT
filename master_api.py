@@ -45,8 +45,7 @@ def get_result_consumer():
                 'enable.auto.commit': True,
                 'session.timeout.ms': 120000,  # 2 minutes - very generous timeout
                 'heartbeat.interval.ms': 3000,  # 3 seconds
-                'max.poll.interval.ms': 600000,  # 10 minutes for long processing
-                'fetch.max.wait.ms': 500  # Don't wait too long for data
+                'max.poll.interval.ms': 600000  # 10 minutes for long processing
             })
             _result_consumer.subscribe([RESULT_TOPIC])
             print(f"🟢 Result consumer initialized")
@@ -117,9 +116,8 @@ def decode_tile(b64_tile):
 # ------------ Task Distribution ------------
 
 def send_tiles(producer, job_id, tiles):
-    """Send all tiles to Kafka tasks topic with proper partitioning for load balancing."""
+    """Send all tiles to Kafka tasks topic with automatic partitioning for load balancing."""
     partition_counts = {}  # Track which partitions get messages
-    num_partitions = 2  # Assuming 2 partitions for load balancing
     
     for idx, ((x, y), tile) in enumerate(tiles):
         try:
@@ -135,10 +133,6 @@ def send_tiles(producer, job_id, tiles):
                 "b64_tile": b64_tile
             }
             
-            # Explicitly assign partition in round-robin fashion
-            # Tile 0 -> partition 0, tile 1 -> partition 1, tile 2 -> partition 0, etc.
-            target_partition = idx % num_partitions
-            
             def delivery_callback(err, msg):
                 if err:
                     print(f"⚠️ Delivery failed for tile {idx}: {err}")
@@ -146,11 +140,11 @@ def send_tiles(producer, job_id, tiles):
                     partition = msg.partition()
                     partition_counts[partition] = partition_counts.get(partition, 0) + 1
             
+            # Let Kafka decide partition based on key hash (automatic distribution)
             producer.produce(
                 TASK_TOPIC,
                 key=str(idx).encode('utf-8'),
                 value=json.dumps(task_data).encode('utf-8'),
-                partition=target_partition,  # Explicitly set partition for even distribution
                 callback=delivery_callback
             )
             
@@ -162,7 +156,8 @@ def send_tiles(producer, job_id, tiles):
     
     producer.flush()
     print(f"✅ All {len(tiles)} tiles sent for job {job_id}")
-    print(f"📊 Distribution across partitions: {partition_counts}")
+    if partition_counts:
+        print(f"📊 Distribution across partitions: {partition_counts}")
 
 
 # ------------ Result Collection ------------
