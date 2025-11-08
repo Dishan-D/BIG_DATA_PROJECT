@@ -227,11 +227,18 @@ def collect_results(job_id, total_tiles, image_size):
     
     # Reconstruct image
     print(f"\n🧩 Reconstructing image for job {job_id}...")
+    print(f"   Received {len(received_tiles)} tiles")
     final_img = np.zeros((h, w, 3), dtype=np.uint8)
     
-    for _, (x, y, tile) in received_tiles.items():
+    for tile_id, (x, y, tile) in received_tiles.items():
         final_img[y:y + tile.shape[0], x:x + tile.shape[1]] = tile
+        # Log first tile to verify it's processed
+        if tile_id == list(received_tiles.keys())[0]:
+            tile_mean = np.mean(tile)
+            print(f"   First tile ({tile_id}) mean pixel value: {tile_mean:.2f}")
+            print(f"   This should differ from original if transformations applied")
     
+    print(f"   Final image shape: {final_img.shape}")
     return final_img, len(received_tiles) == total_tiles
 
 

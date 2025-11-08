@@ -12,8 +12,9 @@ logger = logging.getLogger(__name__)
 # ==================== INDIVIDUAL TRANSFORMATIONS ====================
 
 def apply_gaussian_blur(img):
-    """Apply Gaussian blur."""
-    return cv2.GaussianBlur(img, (31, 31), 0)
+    """Apply Gaussian blur with strong intensity."""
+    # Use much larger kernel for very visible blur effect
+    return cv2.GaussianBlur(img, (99, 99), 0)
 
 
 def apply_grayscale(img):
@@ -77,6 +78,7 @@ def process_image(b64_tile, transformations):
         
         # Apply transformations in sequence
         processed = img.copy()
+        original_hash = hash(img.tobytes())  # Hash of original for comparison
         
         if not transformations or len(transformations) == 0:
             logger.warning(f"⚠️ No transformations specified! Returning original image.")
@@ -85,6 +87,8 @@ def process_image(b64_tile, transformations):
             for transform in transformations:
                 try:
                     logger.info(f"  → Applying: {transform}")
+                    before_hash = hash(processed.tobytes())
+                    
                     if transform == 'blur':
                         processed = apply_gaussian_blur(processed)
                         logger.info(f"  ✓ Blur applied")
@@ -96,10 +100,22 @@ def process_image(b64_tile, transformations):
                         logger.info(f"  ✓ Invert applied")
                     else:
                         logger.warning(f"Unknown transformation: {transform}")
+                    
+                    after_hash = hash(processed.tobytes())
+                    if before_hash != after_hash:
+                        logger.info(f"  ✓✓ Image CHANGED by {transform}")
+                    else:
+                        logger.error(f"  ❌ Image NOT changed by {transform}!")
                         
                 except Exception as e:
                     logger.error(f"Failed to apply {transform}: {e}")
                     # Continue with other transformations
+        
+        final_hash = hash(processed.tobytes())
+        if original_hash != final_hash:
+            logger.info(f"✅ Final image is DIFFERENT from original")
+        else:
+            logger.error(f"❌ Final image is SAME as original - NO TRANSFORMATION APPLIED!")
         
         # Encode back to JPEG
         try:
