@@ -41,7 +41,7 @@ def get_result_consumer():
             _result_consumer = Consumer({
                 'bootstrap.servers': BROKER_IP,
                 'group.id': 'master-results-group',
-                'auto.offset.reset': 'latest',
+                'auto.offset.reset': 'earliest',  # Changed to catch all messages
                 'enable.auto.commit': True,
                 'session.timeout.ms': 120000,  # 2 minutes - very generous timeout
                 'heartbeat.interval.ms': 3000,  # 3 seconds
@@ -168,17 +168,28 @@ def collect_results(job_id, total_tiles, image_size):
     received_tiles = {}
     w, h = image_size
     start_time = time.time()
+    last_progress_time = start_time
     
     print(f"\n📡 Collecting results for job {job_id}...")
+    print(f"   Expecting {total_tiles} tiles...")
     
     while len(received_tiles) < total_tiles:
         if time.time() - start_time > WAIT_TIMEOUT:
-            print(f"⏰ Timeout for job {job_id}")
+            print(f"⏰ Timeout for job {job_id} - received {len(received_tiles)}/{total_tiles}")
             update_job_status(job_id, 'timeout')
             break
         
+        # Progress update every 10 seconds
+        if time.time() - last_progress_time > 10:
+            print(f"⏳ Still waiting... {len(received_tiles)}/{total_tiles} tiles received")
+            last_progress_time = time.time()
+        
         msg = consumer.poll(timeout=1.0)
-        if not msg or msg.error():
+        if not msg:
+            continue
+            
+        if msg.error():
+            print(f"⚠️ Consumer error: {msg.error()}")
             continue
         
         try:
@@ -186,6 +197,7 @@ def collect_results(job_id, total_tiles, image_size):
             
             # Check if this result belongs to our job
             if data.get("job_id") != job_id:
+                print(f"⚠️ Received tile for different job: {data.get('job_id')}")
                 continue
             
             tile_id = data["tile_id"]
@@ -194,13 +206,18 @@ def collect_results(job_id, total_tiles, image_size):
             
             img_tile = decode_tile(b64_processed)
             if img_tile is None:
+                print(f"⚠️ Failed to decode tile {tile_id}")
                 continue
             
             received_tiles[tile_id] = (x, y, img_tile)
             increment_processed_tiles(job_id)
             
-            print(f"✅ Job {job_id}: Received tile {len(received_tiles)}/{total_tiles}")
+            print(f"✅ Job {job_id}: Received tile {tile_id} ({len(received_tiles)}/{total_tiles})")
             
+        except json.JSONDecodeError as e:
+            print(f"⚠️ JSON decode error: {e}")
+        except KeyError as e:
+            print(f"⚠️ Missing key in result data: {e}")
         except Exception as e:
             print(f"⚠️ Error processing result: {e}")
     

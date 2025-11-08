@@ -10,7 +10,7 @@ from database import (
     get_job_progress, get_active_workers, get_all_workers,
     get_system_stats, mark_inactive_workers
 )
-from master_api import process_image_async, get_processing_status
+from master_api import process_image_async, get_processing_status, get_heartbeat_consumer
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -24,6 +24,10 @@ os.makedirs(app.config['OUTPUT_FOLDER'], exist_ok=True)
 
 # Initialize database
 init_db()
+
+# Start heartbeat monitoring immediately
+print("💓 Initializing heartbeat monitoring...")
+get_heartbeat_consumer()  # This will start the monitoring thread
 
 
 def allowed_file(filename):
