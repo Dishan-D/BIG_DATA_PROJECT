@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoring Dashboard - Distributed Image Processing</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .nav-links {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .nav-links a {
+            display: inline-block;
+            padding: 10px 25px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            margin: 0 10px;
+            transition: all 0.3s;
+        }
+
+        .nav-links a:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .dashboard-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            margin-bottom: 30px;
+        }
+
+        .dashboard-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .worker-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .worker-card {
+            background: linear-gradient(135deg, #f8f9ff 0%, #e8ebff 100%);
+            border-radius: 10px;
+            padding: 20px;
+            border-left: 5px solid #667eea;
+            transition: all 0.3s;
+        }
+
+        .worker-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .worker-card.inactive {
+            border-left-color: #dc3545;
+            background: linear-gradient(135deg, #fff5f5 0%, #ffe5e5 100%);
+            opacity: 0.7;
+        }
+
+        .worker-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .worker-id {
+            font-weight: bold;
+            font-size: 1.2em;
+            color: #333;
+        }
+
+        .worker-status {
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .worker-info {
+            font-size: 0.9em;
+            color: #666;
+            margin: 5px 0;
+        }
+
+        .worker-metric {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .metric-label {
+            color: #666;
+        }
+
+        .metric-value {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .activity-log {
+            max-height: 400px;
+            overflow-y: auto;
+            background: #f8f9ff;
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .log-entry {
+            padding: 10px;
+            border-left: 3px solid #667eea;
+            background: white;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+
+        .log-time {
+            color: #999;
+            font-size: 0.85em;
+        }
+
+        .refresh-btn {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .chart-container {
+            height: 300px;
+            margin-top: 20px;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+            font-size: 1.1em;
+        }
+
+        .pulse {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #28a745;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .last-updated {
+            text-align: center;
+            color: white;
+            font-size: 0.9em;
+            margin-top: 20px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Monitoring Dashboard</h1>
+            <p>Real-time system monitoring and worker status</p>
+        </div>
+
+        <div class="nav-links">
+            <a href="/">📤 Upload</a>
+            <a href="/dashboard">📊 Dashboard</a>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">📊</div>
+                <div class="stat-value" id="totalJobs">0</div>
+                <div class="stat-label">Total Jobs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">✅</div>
+                <div class="stat-value" id="completedJobs">0</div>
+                <div class="stat-label">Completed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">⚙️</div>
+                <div class="stat-value" id="processingJobs">0</div>
+                <div class="stat-label">Processing</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">👷</div>
+                <div class="stat-value" id="activeWorkers">0</div>
+                <div class="stat-label">Active Workers</div>
+            </div>
+        </div>
+
+        <div class="dashboard-section">
+            <h2>
+                <span class="pulse"></span>
+                Worker Status
+            </h2>
+            <button class="refresh-btn" onclick="refreshDashboard()">🔄 Refresh</button>
+            <div class="worker-grid" id="workerGrid"></div>
+        </div>
+
+        <div class="dashboard-section">
+            <h2>📋 Recent Activity</h2>
+            <div class="activity-log" id="activityLog"></div>
+        </div>
+
+        <div class="last-updated">
+            Last updated: <span id="lastUpdate">Never</span>
+        </div>
+    </div>
+
+    <script>
+        let activityLogs = [];
+
+        async function refreshDashboard() {
+            await Promise.all([
+                updateStats(),
+                updateWorkers(),
+                updateJobs()
+            ]);
+            document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+        }
+
+        async function updateStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const stats = await response.json();
+                
+                document.getElementById('totalJobs').textContent = stats.total_jobs;
+                document.getElementById('completedJobs').textContent = stats.completed_jobs;
+                document.getElementById('processingJobs').textContent = stats.processing_jobs;
+                document.getElementById('activeWorkers').textContent = stats.active_workers;
+            } catch (error) {
+                console.error('Error fetching stats:', error);
+            }
+        }
+
+        async function updateWorkers() {
+            try {
+                const response = await fetch('/api/workers');
+                const workers = await response.json();
+                
+                const workerGrid = document.getElementById('workerGrid');
+                
+                if (workers.length === 0) {
+                    workerGrid.innerHTML = '<div class="no-data">No workers registered yet</div>';
+                    return;
+                }
+
+                workerGrid.innerHTML = workers.map(worker => {
+                    const isActive = worker.current_status === 'active';
+                    const lastHeartbeat = new Date(worker.last_heartbeat);
+                    const now = new Date();
+                    const secondsAgo = Math.floor((now - lastHeartbeat) / 1000);
+                    
+                    return `
+                        <div class="worker-card ${isActive ? '' : 'inactive'}">
+                            <div class="worker-header">
+                                <span class="worker-id">🤖 ${worker.worker_id}</span>
+                                <span class="worker-status status-${isActive ? 'active' : 'inactive'}">
+                                    ${isActive ? 'ACTIVE' : 'INACTIVE'}
+                                </span>
+                            </div>
+                            <div class="worker-metric">
+                                <span class="metric-label">Tasks Processed</span>
+                                <span class="metric-value">${worker.total_tasks_processed || 0}</span>
+                            </div>
+                            <div class="worker-metric">
+                                <span class="metric-label">Last Heartbeat</span>
+                                <span class="metric-value">${secondsAgo}s ago</span>
+                            </div>
+                            <div class="worker-info">
+                                ${lastHeartbeat.toLocaleString()}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Error fetching workers:', error);
+            }
+        }
+
+        async function updateJobs() {
+            try {
+                const response = await fetch('/api/jobs');
+                const jobs = await response.json();
+                
+                // Add new jobs to activity log
+                jobs.forEach(job => {
+                    const existing = activityLogs.find(log => log.job_id === job.job_id);
+                    if (!existing) {
+                        activityLogs.unshift({
+                            job_id: job.job_id,
+                            message: `New job started: ${job.filename}`,
+                            time: job.created_at,
+                            type: 'start'
+                        });
+                    } else if (job.status === 'completed' && existing.status !== 'completed') {
+                        activityLogs.unshift({
+                            job_id: job.job_id,
+                            message: `Job completed: ${job.filename}`,
+                            time: job.completed_at,
+                            type: 'complete'
+                        });
+                    }
+                    if (existing) existing.status = job.status;
+                });
+
+                // Keep only last 20 logs
+                activityLogs = activityLogs.slice(0, 20);
+                
+                const activityLog = document.getElementById('activityLog');
+                if (activityLogs.length === 0) {
+                    activityLog.innerHTML = '<div class="no-data">No recent activity</div>';
+                    return;
+                }
+
+                activityLog.innerHTML = activityLogs.map(log => {
+                    const icon = log.type === 'complete' ? '✅' : '🚀';
+                    return `
+                        <div class="log-entry">
+                            ${icon} ${log.message}
+                            <div class="log-time">${new Date(log.time).toLocaleString()}</div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Error updating jobs:', error);
+            }
+        }
+
+        // Auto-refresh every 2 seconds
+        setInterval(refreshDashboard, 2000);
+        refreshDashboard();
+    </script>
+</body>
+</html>
